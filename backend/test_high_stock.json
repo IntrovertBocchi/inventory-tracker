@@ -1,0 +1,6 @@
+{
+  "name": "Test C",
+  "sku": "TEST-NUM",
+  "stock_quantity": 9999999,
+  "base_price": 10
+}

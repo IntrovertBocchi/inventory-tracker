@@ -1,0 +1,91 @@
+@use 'tokens' as *;
+
+.table {
+  table-layout: fixed;
+  width: 100%;
+  
+  th, td {
+    text-align: left;
+    padding: $space-sm $space-md;
+    border-bottom: 1px solid var(--color-border);
+    overflow-wrap: break-word;
+    word-break: break-word;
+    vertical-align: top;
+  }
+
+  th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-muted);
+    font-weight: 600;
+    overflow-wrap: normal;
+    word-break: keep-all;
+  }
+
+  td {
+    font-family: $font-mono;
+    font-size: 0.9rem;
+  }
+
+  td.numeric {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: keep-all;
+  }
+
+  tbody tr {
+    transition: background-color $transition-fast;
+
+    &:hover {
+      background-color: var(--color-paper);
+    }
+  }
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-xs;
+  padding: 2px $space-sm;
+  border-radius: 999px;
+  font-family: $font-body;
+  font-size: 0.75rem;
+  font-weight: 600;
+
+  &::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  &--ok {
+    background-color: var(--color-accent-hover);
+    color: white;
+
+    &::before {
+      background-color: white;
+    }
+  }
+
+  &--low {
+    background-color: var(--color-amber-bg);
+    color: var(--color-amber);
+
+    &::before {
+      background-color: var(--color-amber);
+    }
+  }
+}
+
+.table input {
+  width: 100%;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: $space-xs;
+  white-space: normal;
+}

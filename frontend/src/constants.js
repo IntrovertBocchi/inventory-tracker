@@ -1,0 +1,9 @@
+export const CURRENCIES = ["USD", "EUR", "GBP", "SGD", "JPY", "AUD"];
+export const LOW_STOCK_THRESHOLD = 10;
+export const MAX_NAME_LENGTH = 120;
+export const MAX_SKU_LENGTH = 50;
+export const MAX_STOCK_QUANTITY = 1_000_000;
+export const MAX_BASE_PRICE = 1_000_000;
+export const PRODUCTS_TABLE_WIDTHS = ["24%", "18%", "10%", "18%", "30%"];
+export const PRODUCTS_TABLE_WIDTHS_WITH_CURRENCY = ["22%", "16%", "9%", "16%", "14%", "23%"];
+export const DASHBOARD_TABLE_WIDTHS = ["30%", "20%", "14%", "18%", "18%"];

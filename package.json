@@ -1,0 +1,15 @@
+{
+  "name": "inventory-tracker",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently -n BACKEND,FRONTEND -c blue,green \"cd backend && venv\\Scripts\\python.exe app.py\" \"cd frontend && npm run dev\""
+  },
+  
+  "devDependencies": {
+    "concurrently": "^10.0.3",
+    "sass": "^1.101.0"
+  },
+  "dependencies": {
+    "framer-motion": "^12.42.2"
+  }
+}

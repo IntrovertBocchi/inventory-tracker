@@ -1,0 +1,120 @@
+@use 'tokens' as *;
+
+.hero {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: $space-xl $space-lg;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 39px,
+      var(--color-border) 40px
+    );
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  &__content {
+    position: relative;
+    max-width: 560px;
+  }
+
+  &__eyebrow {
+    font-family: $font-mono;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-accent);
+    margin-bottom: $space-sm;
+  }
+
+  &__title {
+    font-family: $font-display;
+    font-size: 2.5rem;
+    line-height: 1.15;
+    margin-bottom: $space-md;
+  }
+
+  &__subtitle {
+    color: var(--color-muted);
+    font-size: 1.05rem;
+    margin-bottom: $space-lg;
+  }
+
+  &__cta {
+    display: inline-block;
+  }
+}
+
+.btn--lg {
+  padding: $space-sm $space-xl;
+  font-size: 1rem;
+}
+
+.welcome {
+  padding-top: $space-md;
+
+  &__date {
+    font-family: $font-mono;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-muted);
+    margin-bottom: $space-xs;
+  }
+
+  &__greeting {
+    font-size: 2rem;
+    margin-bottom: $space-xs;
+  }
+
+  &__subtitle {
+    color: var(--color-muted);
+    margin-bottom: $space-lg;
+  }
+}
+
+.quick-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: $space-md;
+}
+
+.quick-link {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-accent);
+  border-radius: $radius;
+  padding: $space-lg;
+  transition: background-color $transition-theme, border-color $transition-theme, transform $transition-fast;
+
+  &:hover {
+    transform: translateY(-2px);
+    background-color: var(--color-paper);
+  }
+
+  &__label {
+    font-family: $font-display;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--color-ink);
+  }
+
+  &__desc {
+    font-size: 0.9rem;
+    color: var(--color-muted);
+  }
+}

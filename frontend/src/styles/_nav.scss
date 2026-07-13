@@ -1,0 +1,78 @@
+@use 'tokens' as *;
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: $space-md;
+  padding: $space-md $space-lg;
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color $transition-theme, border-color $transition-theme;
+
+  &__brand {
+    font-family: $font-display;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-right: auto;
+  }
+
+  &__link {
+    color: var(--color-muted);
+    font-weight: 500;
+
+    &:hover {
+      color: var(--color-ink);
+    }
+
+    &.active {
+      color: var(--color-accent);
+    }
+  }
+}
+
+.btn {
+  padding: $space-xs $space-md;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  &--ghost {
+    background-color: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-ink);
+
+    &:hover {
+      background-color: var(--color-paper);
+    }
+  }
+
+  &--primary {
+    background-color: var(--color-accent);
+    color: white;
+
+    &:hover {
+      background-color: var(--color-accent-hover);
+      box-shadow: 0 2px 8px rgba(15, 107, 92, 0.35);
+    }
+  }
+
+  &--danger {
+    background-color: transparent;
+    color: var(--color-red);
+    border: 1px solid var(--color-red);
+
+    &:hover {
+      background-color: var(--color-red-bg);
+    }
+  }
+}
