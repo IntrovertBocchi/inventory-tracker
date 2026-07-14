@@ -8,6 +8,17 @@ function getGreeting() {
   if (hour < 18) return "Good afternoon"
   return "Good evening"
 }
+
+function getDisplayName(user) {
+  if (user.name) {
+    const parts = user.name.trim().split(" ");
+    return parts[parts.length -1];
+  }
+  if (user.email) {
+    return user.email.split("@")[0];
+  }
+  return "there";
+}
 function Home() {
   const {isAuthenticated, isLoading, loginWithRedirect, user } = useAuth0();
   const shouldReduceMotion = useReducedMotion()
@@ -66,7 +77,7 @@ function Home() {
     )
   }
 
-  const displayName = user.name || user.email
+  const displayName = getDisplayName(user)
 
   return (
     <div className="page">
