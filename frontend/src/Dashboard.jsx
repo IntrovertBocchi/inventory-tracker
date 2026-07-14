@@ -32,6 +32,7 @@ function Dashboard() {
     }
 
     const lowStockProducts = products.filter( p => p.stock_quantity < LOW_STOCK_THRESHOLD);
+    const totalProducts = products.length;
 
     const totalValueMYR = products.reduce(
         (sum, p) => sum + (p.base_price * p.stock_quantity),
@@ -86,7 +87,7 @@ function Dashboard() {
                 
                     <div className="stat-card">
                         <p className="stat-card__label">Total Products</p>
-                        <p className="stat-card__value">{lowStockProducts.length}</p>
+                        <p className="stat-card__value">{totalProducts}</p>
                     </div>
 
                     <div className={`stat-card ${lowStockProducts.length > 0 ? 'stat-card--warning' : ''}`}>

@@ -4,6 +4,8 @@ import { apiFetch } from './api';
 import { MAX_BASE_PRICE, MAX_NAME_LENGTH, MAX_SKU_LENGTH, MAX_STOCK_QUANTITY } from './constants';
 import { formatPrice } from './utils/formatPrice'
 import { formatCurrency } from './utils/formatCurrency';
+import { sanitizeInteger, sanitizeDecimal } from './utils/sanitizeNumericInput';
+import ConfirmDialog from './ConfirmDialog';
 
 function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate }) {
     const { getAccessTokenSilently } = useAuth0();
@@ -11,6 +13,7 @@ function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({});
     const [editError, setEditError] = useState(null);
+    const [isDeleteOpen, setIsDeleteOpen ] = useState(false);
     
     // Edit product functionality
     function startEdit(product) {
@@ -32,7 +35,15 @@ function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate
 
     function handleEditChange(e) {
         const { name, value } = e.target;
-        setEditData(prev => ({ ...prev, [name]: value }));
+        let sanitized = value;
+
+        if (name === "stock_quantity") {
+            sanitized = sanitizeInteger(value);
+        } else if (name === "base_price") {
+            sanitized = sanitizeDecimal(value);
+        }
+
+        setEditData(prev => ({ ...prev, [name]: sanitized }));
     }
 
     function handleEditPriceBlur() {
@@ -44,8 +55,8 @@ function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate
             return "Name is required.";
         }
         if (editData.name.trim().length > MAX_NAME_LENGTH) {
-                    return `Name must be ${MAX_NAME_LENGTH} characters or fewer.`;
-                }
+            return `Name must be ${MAX_NAME_LENGTH} characters or fewer.`;
+        }
         if (!editData.sku.trim()) {
             return "SKU is required.";
         }
@@ -96,15 +107,17 @@ function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate
     }
 
     // Delete product functionality
-    async function handleDelete(productId) {
-        const confirmed = window.confirm("Delete this product? This cannot be undone.");
-        if (!confirmed) {
-            return;
-        }
+
+    function handleDeleteClick() {
+        setIsDeleteOpen(true);
+    }
+
+    async function confirmDelete() {
+        setIsDeleteOpen(false);
 
         try {
             const token = await getAccessTokenSilently();
-            await apiFetch(`/products/${productId}`, token, {
+            await apiFetch(`/products/${product.id}`, token, {
                 method: "DELETE"
             });
             await onProductChanged();
@@ -123,11 +136,12 @@ function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate
                     <input name="sku" value={editData.sku} onChange={handleEditChange} maxLength={MAX_SKU_LENGTH}/>
                 </td>
                 <td>
-                    <input name="stock_quantity" value={editData.stock_quantity} onChange={handleEditChange} maxLength={7}/>
+                    <input name="stock_quantity" value={editData.stock_quantity} onChange={handleEditChange} maxLength={7} inputMode="numeric"/>
                 </td>
                 <td>
-                    <input name="base_price" value={editData.base_price} onChange={handleEditChange} onBlur={handleEditPriceBlur} maxLength={10}/>
+                    <input name="base_price" value={editData.base_price} onChange={handleEditChange} onBlur={handleEditPriceBlur} maxLength={10} inputMode="decimal"/>
                 </td>
+                {selectedCurrency && <td className="numeric"></td>}
                 <td>
                     <div className="row-actions">
                         <button className="btn btn--primary" onClick={() => saveEdit(product.id)}>Save</button>
@@ -140,23 +154,34 @@ function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate
     }
 
     return (
-        <tr>
-            <td>{product.name}</td>
-            <td>{product.sku}</td>
-            <td className="numeric">{product.stock_quantity}</td>
-            <td className="numeric">{formatCurrency(product.base_price)}</td>
-            { selectedCurrency && (
-                <td className="numeric">
-                    {rate !== null ? formatCurrency(product.base_price * rate) : "—"}
+        <>
+            <tr>
+                <td>{product.name}</td>
+                <td>{product.sku}</td>
+                <td className="numeric">{product.stock_quantity}</td>
+                <td className="numeric">{formatCurrency(product.base_price)}</td>
+                { selectedCurrency && (
+                    <td className="numeric">
+                        {rate !== null ? formatCurrency(product.base_price * rate) : "—"}
+                    </td>
+                )}
+                <td>
+                    <div className="row-actions">
+                        <button className="btn btn--ghost" onClick={() => startEdit(product)}>Edit</button>
+                        <button className="btn btn--danger" onClick={handleDeleteClick}>Delete</button>
+                    </div>
                 </td>
-            )}
-            <td>
-                <div className="row-actions">
-                    <button className="btn btn--ghost" onClick={() => startEdit(product)}>Edit</button>
-                    <button className="btn btn--danger" onClick={() => handleDelete(product.id)}>Delete</button>
-                </div>
-            </td>
-        </tr>
+            </tr>
+            <ConfirmDialog
+                isOpen={isDeleteOpen}
+                title="Delete this product?"
+                message={`This will permanently remove "${product.name}" from your inventory. This cannot be undone.`}
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                onConfirm={confirmDelete}
+                onCancel={() => setIsDeleteOpen(false)}
+            />
+        </>
     );
 }
 

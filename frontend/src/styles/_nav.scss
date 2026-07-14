@@ -64,6 +64,7 @@
       background-color: var(--color-accent-hover);
       box-shadow: 0 2px 8px rgba(15, 107, 92, 0.35);
     }
+
   }
 
   &--danger {
@@ -73,6 +74,15 @@
 
     &:hover {
       background-color: var(--color-red-bg);
+    }
+  }
+
+  &--danger-solid {
+    background-color: var(--color-red);
+    color: white;
+
+    &:hover {
+      opacity: 0.85;
     }
   }
 }

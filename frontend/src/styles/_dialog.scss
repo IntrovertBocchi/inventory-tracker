@@ -1,0 +1,37 @@
+@use 'tokens' as *;
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-lg;
+  z-index: 1000;
+}
+
+.dialog-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: $radius;
+  padding: $space-lg;
+  max-width: 420px;
+  width: 100%;
+  transition: background-color $transition-theme, border-color $transition-theme;
+
+  &__title {
+    margin-bottom: $space-sm;
+  }
+
+  &__message {
+    color: var(--color-muted);
+    margin-bottom: $space-lg;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $space-sm;
+  }
+}

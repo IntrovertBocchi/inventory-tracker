@@ -3,6 +3,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { apiFetch } from './api';
 import { MAX_BASE_PRICE, MAX_NAME_LENGTH, MAX_SKU_LENGTH, MAX_STOCK_QUANTITY } from './constants';
 import { formatPrice } from './utils/formatPrice'
+import { sanitizeInteger, sanitizeDecimal } from './utils/sanitizeNumericInput';
 
 function AddProductForm({onProductAdded}) {
     const { getAccessTokenSilently } = useAuth0();
@@ -21,7 +22,14 @@ function AddProductForm({onProductAdded}) {
 
     function handleChange(e) {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        let sanitized = value;
+
+        if (name === "stock_quantity") {
+            sanitized = sanitizeInteger(value);
+        } else if (name === "base_price") {
+            sanitized = sanitizeDecimal(value);
+        }
+        setFormData(prev => ({ ...prev, [name]: sanitized }));
     }
     
     function handlePriceBlur() {

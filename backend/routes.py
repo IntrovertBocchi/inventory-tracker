@@ -88,7 +88,7 @@ def get_products():
 
 @products_bp.route("/products/<int:product_id>", methods=["PUT"])
 @requires_auth
-def update_products(product_id):
+def update_product(product_id):
     product = Product.query.get(product_id)
 
     if not product:
@@ -97,11 +97,11 @@ def update_products(product_id):
     data = request.get_json(silent=True)
 
     if not data:
-        return jsonify({"Error": "Request body must be JSON"}), 400
+        return jsonify({"error": "Request body must be JSON"}), 400
     
     if "name" in data:
         if not data["name"] or not isinstance(data["name"], str):
-            return jsonify({"Error": "name must be a non-empty string"}), 400
+            return jsonify({"error": "name must be a non-empty string"}), 400
         product.name = data["name"]
     
     if "sku" in data:
@@ -109,24 +109,24 @@ def update_products(product_id):
         if isinstance(sku, str):
             sku = sku.strip().upper()
         if not sku:
-            return jsonify({"Error": "sku must not be a non-empty string"}), 400
+            return jsonify({"error": "sku must not be a non-empty string"}), 400
         
         # A product editing its own SKU without changing it will always "find"
         # itself in this query - that's expected, not a conflict. We only treat
         # it as a real duplicate if a DIFFERENT product already owns the SKU.
         existing = Product.query.filter_by(sku = sku).first()
         if existing and existing.id != product.id:
-            return jsonify({"Error": "a product with this sku already exists"}), 409
+            return jsonify({"error": "a product with this sku already exists"}), 409
         product.sku = sku
 
     if "stock_quantity" in data:
         if not isinstance(data["stock_quantity"], int) or data["stock_quantity"] < 0:
-            return jsonify({"Error": "stock_quantity must be a non-negative integer"}), 400
+            return jsonify({"error": "stock_quantity must be a non-negative integer"}), 400
         product.stock_quantity = data["stock_quantity"]
 
     if "base_price" in data:
         if not isinstance(data["base_price"], (int, float)) or data["base_price"] < 0:
-            return jsonify({"Error": "base_price must be a non-negative number"}), 400
+            return jsonify({"error": "base_price must be a non-negative number"}), 400
         product.base_price = data["base_price"]
 
     db.session.commit()
