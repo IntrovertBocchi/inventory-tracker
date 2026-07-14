@@ -122,6 +122,92 @@ inventory-tracker/
 └── package.json            # Root script to run both servers together
 ```
 
+## Screenshots
+
+**Dashboard — healthy inventory**
+![Dashboard, all products sufficiently stocked](./assets/dashboard-healthy.png)
+
+**Dashboard — low stock alerts**
+![Dashboard, showing low stock warnings](./assets/dashboard-low-stock.png)
+
+**Responsive table with a long product name**
+![Product table with a long name wrapping cleanly](./assets/long-name-wrap.png)
+
+Long product names wrap cleanly within their column instead of breaking the table layout or spilling into adjacent columns.
+
+**Protected routes with correct post-login redirect**
+![Demo: unauthenticated user is redirected to login, then returned to the originally requested page](./assets/auth-redirect-demo.gif)
+
+Visiting a protected route while logged out redirects to Auth0 login — and after logging in, lands back on the originally requested page, not a generic home screen.
+
+**Dark / light theme transition**
+![Demo: smooth theme toggle between light and dark mode](./assets/theme-toggle-demo.gif)
+
+## Technical Highlights
+
+### Backend: protecting every route with real token verification
+
+```python
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization", None)
+
+        if not auth_header:
+            return jsonify({"error": "Authorization header missing"}), 401
+
+        parts = auth_header.split()
+        if parts[0].lower() != "bearer" or len(parts) != 2:
+            return jsonify({"error": "Invalid Authorization header format"}), 401
+
+        token = parts[1]
+        try:
+            claims = verify_token(token)
+        except JoseError:
+            return jsonify({"error": "Invalid or expired token"}), 401
+
+        request.auth_claims = claims
+        return f(*args, **kwargs)
+    return decorated
+```
+
+Every product endpoint verifies the request's JWT — checking signature, audience, and issuer against Auth0's public keys — before any database logic runs. No route trusts the frontend's auth state alone.
+
+### Frontend: avoiding a race condition on rapid currency switching
+
+```js
+useEffect(() => {
+  if (!selectedCurrency) {
+    setRate(null);
+    return;
+  }
+
+  const controller = new AbortController();
+
+  async function loadRate() {
+    setRateLoading(true);
+    setRate(null);
+    try {
+      const token = await getAccessTokenSilently();
+      const data = await apiFetch(`/convert?to=${selectedCurrency}`, token, {
+        signal: controller.signal
+      });
+      setRate(data.rate);
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      setRateError(err.message);
+    } finally {
+      if (!controller.signal.aborted) setRateLoading(false);
+    }
+  }
+
+  loadRate();
+  return () => controller.abort();
+}, [selectedCurrency, getAccessTokenSilently]);
+```
+
+If a user switches currencies quickly, an older in-flight request could resolve after a newer one and overwrite it with stale data. `AbortController` cancels the previous request the instant a new one starts, so the displayed rate always matches the currently selected currency.
+
 ## Scope
 
 This project intentionally does not include: multi-user accounts, payment processing, cloud hosting, a mobile app, automated restocking/supplier integration, or historical reporting. See the original project documentation for full scope boundaries.
