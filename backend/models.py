@@ -1,4 +1,5 @@
 from extensions import db
+from datetime import datetime
 
 class Product(db.Model):
     """
@@ -25,4 +26,34 @@ class Product(db.Model):
             "sku": self.sku,
             "stock_quantity": self.stock_quantity,
             "base_price": self.base_price
+        }
+    
+class Sale(db.Model):
+    """
+    One record per attempted sale. Created as "pending" the moment a
+    payment session starts, then updated to "paid" or "failed" once the
+    payment provider's webhook confirms the outcome. Stock is only ever
+    decremented once a sale is confirmed "paid" - never at creation time,
+    since the customer may abandon or fail the actual payment.
+    """
+    id = db.Column(db.Integer, primary_key = True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable = False)
+    quantity = db.Column(db.Integer, nullable = False)
+    amount = db.Column(db.Float, nullable = False)
+    payer_email = db.Column(db.String(255), nullable = False)
+    provider = db.Column(db.String(50), nullable = False)
+    reference_id = db.Column(db.String(255), unique = True, nullable = False, index = True)
+    status = db.Column(db.String(20), nullable = False, default = "pending")
+    created_at = db.Column(db.DateTime, nullable = False, default = datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "product_id": self.product_id,
+            "quantity": self.quantity,
+            "amount": self.amount,
+            "payer_email": self.payer_email,
+            "provider": self.provider,
+            "status": self.status,
+            "created_at": self.created_at.isoformat()
         }

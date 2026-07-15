@@ -7,6 +7,8 @@ import { useCurrencyRate } from './hooks/useCurrencyRate'
 import { useProducts } from './hooks/useProducts'
 import TableColGroup from './TableColGroup'
 import { CURRENCIES, PRODUCTS_TABLE_WIDTHS, PRODUCTS_TABLE_WIDTHS_WITH_CURRENCY } from './constants'
+import { usePaymentStatus } from './hooks/usePaymentStatus'
+import PaymentStatusBanner from './PaymentStatusBanner'
 
 
 function Products() {
@@ -14,6 +16,7 @@ function Products() {
     const { products, loading, error, setError, reloadProducts } = useProducts();
     const [ selectedCurrency, setSelectedCurrency ] = useState("");
     const { rate, rateLoading, rateError } = useCurrencyRate(selectedCurrency);
+    const { status: paymentStatus, saleInfo, clearStatus } = usePaymentStatus(reloadProducts);
 
     if (loading) {
         return (
@@ -37,6 +40,7 @@ function Products() {
         <div className="page">
             <h1>Products</h1>
 
+            <PaymentStatusBanner status={paymentStatus} saleInfo={saleInfo} onDismiss={clearStatus}/>
             <div className="card">
                 <div className="currency-control">
                     <label htmlFor="currency-select">View prices in: </label>
@@ -93,6 +97,7 @@ function Products() {
                                     onError={setError}
                                     selectedCurrency={selectedCurrency}
                                     rate={rate}
+                                    onSellStart={clearStatus}
                                 />
                             ))}
                         </tbody>

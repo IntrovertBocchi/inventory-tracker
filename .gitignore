@@ -3,6 +3,7 @@ venv/
 __pycache__/
 *.pyc
 backend/inventory.db
+backend/test_sale.json
 
 # Node
 node_modules/

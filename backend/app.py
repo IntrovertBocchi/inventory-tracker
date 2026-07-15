@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from auth import requires_auth
 from extensions import db
 from routes import products_bp
+from sales_routes import sales_bp
 import os
 
 load_dotenv()
@@ -17,6 +18,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
 app.register_blueprint(products_bp)
+app.register_blueprint(sales_bp)
 
 @app.route("/api/ping")
 @requires_auth

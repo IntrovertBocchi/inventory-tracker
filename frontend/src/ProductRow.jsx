@@ -6,14 +6,18 @@ import { formatPrice } from './utils/formatPrice'
 import { formatCurrency } from './utils/formatCurrency';
 import { sanitizeInteger, sanitizeDecimal } from './utils/sanitizeNumericInput';
 import ConfirmDialog from './ConfirmDialog';
+import SellDialog from './SellDialog';
 
-function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate }) {
+
+function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate, onSellStart }) {
     const { getAccessTokenSilently } = useAuth0();
 
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({});
     const [editError, setEditError] = useState(null);
     const [isDeleteOpen, setIsDeleteOpen ] = useState(false);
+
+    const [isSellOpen, setIsSellOpen ] = useState(false);
     
     // Edit product functionality
     function startEdit(product) {
@@ -107,7 +111,6 @@ function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate
     }
 
     // Delete product functionality
-
     function handleDeleteClick() {
         setIsDeleteOpen(true);
     }
@@ -124,6 +127,15 @@ function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate
         } catch (err) {
             onError(err.message);
         }
+    }
+
+    async function handleSellConfirm(quantity, payerEmail) {
+        const token = await getAccessTokenSilently();
+        const result = await apiFetch(`/products/${product.id}/sell`, token, {
+            method: "POST",
+            body: JSON.stringify({ quantity, payer_email: payerEmail})
+        });
+        window.location.href = result.checkout_url;
     }
 
     if (isEditing) {
@@ -167,6 +179,7 @@ function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate
                 )}
                 <td>
                     <div className="row-actions">
+                        <button classNmae="btn btn--primary" onClick={() => { onSellStart(); setIsSellOpen(true); }} disabled={product.stock_quantity === 0}>Sell</button>
                         <button className="btn btn--ghost" onClick={() => startEdit(product)}>Edit</button>
                         <button className="btn btn--danger" onClick={handleDeleteClick}>Delete</button>
                     </div>
@@ -180,6 +193,12 @@ function ProductRow({ product, onProductChanged, onError, selectedCurrency, rate
                 cancelLabel="Cancel"
                 onConfirm={confirmDelete}
                 onCancel={() => setIsDeleteOpen(false)}
+            />
+            <SellDialog
+                isOpen={isSellOpen}
+                product={product}
+                onConfirm={handleSellConfirm}
+                onCancel={() => setIsSellOpen(false)}
             />
         </>
     );

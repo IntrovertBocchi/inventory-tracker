@@ -1,13 +1,20 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useState } from 'react';
-import { withAuthenticationRequired } from '@auth0/auth0-react'
+import { useState, useEffect } from 'react';
+import { withAuthenticationRequired, useAuth0 } from '@auth0/auth0-react'
 import { useCurrencyRate } from './hooks/useCurrencyRate'
 import { useProducts } from './hooks/useProducts';
 import TableColGroup from './TableColGroup'
 import { CURRENCIES, DASHBOARD_TABLE_WIDTHS, LOW_STOCK_THRESHOLD } from './constants'
 import { formatCurrency } from './utils/formatCurrency';
 
+
 function Dashboard() {
+    const { getAccessTokenSilently } = useAuth0();
+
+    useEffect(() => {
+    // TEMPORARY — remove after testing
+    getAccessTokenSilently().then(token => console.log(token));
+    }, []);
 
     const { products, loading, error } = useProducts();
     const [ selectedCurrency, setSelectedCurrency ] = useState("");

@@ -10,6 +10,7 @@ Built as a practice project to learn end-to-end authentication, REST API design,
 - **Product Management** — full CRUD (create, read, update, delete) with server-side validation
 - **Live Currency Conversion** — view any product's price converted into a selected foreign currency, using live exchange rates
 - **Inventory Dashboard** — total inventory value, low-stock alerts, and a full product overview
+- **Sandbox Payments** — record a sale via a real payment provider (Stripe test mode), with stock automatically reduced once payment is confirmed by webhook — built behind a swappable gateway interface so a second provider (Billplz) can be added without touching any routes
 - **Dark / light theme** — with system-preference detection and persistence across sessions
 
 ## Tech Stack
@@ -17,6 +18,7 @@ Built as a practice project to learn end-to-end authentication, REST API design,
 **Frontend:** React, Vite, React Router, SCSS, Framer Motion, Auth0 React SDK
 **Backend:** Flask, SQLAlchemy, SQLite, joserfc (JWT verification)
 **Auth:** Auth0 (SPA Application + API, RS256, PKCE flow)
+**Payments:** Stripe (test mode / Checkout Sessions + webhooks), built behind a provider-agnostic `PaymentGateway` interface (Billplz sandbox support scaffolded, pending account activation)
 **External API:** [Frankfurter](https://frankfurter.app) for live currency exchange rates
 
 ## Prerequisites
@@ -56,7 +58,15 @@ Create `backend/.env`:
 AUTH0_DOMAIN=your-tenant.us.auth0.com
 AUTH0_API_AUDIENCE=https://your-api-identifier
 FLASK_DEBUG=true
+
+PAYMENT_PROVIDER=stripe
+STRIPE_SECRET_KEY=sk_test_your_key
+STRIPE_PUBLISHABLE_KEY=pk_test_your_key
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+FRONTEND_URL=http://localhost:5173
 ```
+
+`STRIPE_WEBHOOK_SECRET` comes from the [Stripe CLI](https://stripe.com/docs/stripe-cli) — run `stripe listen --forward-to localhost:5000/webhooks/stripe` once, and it will print the secret to use. This forwards Stripe's webhook events to your local server, since Stripe can't reach `localhost` directly. The root `npm run dev` script (below) starts this automatically alongside both servers.
 
 ### 4. Frontend setup
 
@@ -91,7 +101,7 @@ From the project root:
 npm run dev
 ```
 
-This starts both the Flask backend (`http://localhost:5000`) and the Vite frontend (`http://localhost:5173`) together, with labeled, color-coded output for each.
+This starts the Flask backend (`http://localhost:5000`), the Vite frontend (`http://localhost:5173`), and the Stripe CLI's webhook listener together, with labeled, color-coded output for each.
 
 Visit `http://localhost:5173` and log in.
 
@@ -102,24 +112,32 @@ inventory-tracker/
 ├── backend/
 │   ├── app.py              # Flask app entry point, config
 │   ├── auth.py             # JWT verification (joserfc)
-│   ├── models.py           # SQLAlchemy Product model
+│   ├── models.py           # SQLAlchemy Product and Sale models
 │   ├── routes.py           # Product CRUD + currency conversion endpoints
+│   ├── sales_routes.py     # Sale creation + payment provider webhook endpoint
+│   ├── payments/
+│   │   ├── base.py             # PaymentGateway interface (create_payment, verify_webhook)
+│   │   ├── factory.py          # Returns the active gateway based on PAYMENT_PROVIDER
+│   │   └── stripe_gateway.py   # Stripe implementation of the interface
 │   ├── extensions.py       # Shared SQLAlchemy db instance
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── hooks/          # useProducts, useCurrencyRate, useTheme
-│   │   ├── utils/          # formatPrice, formatCurrency
-│   │   ├── styles/         # SCSS partials (tokens, base, nav, layout, table, dashboard, home)
+│   │   ├── hooks/          # useProducts, useCurrencyRate, useTheme, usePaymentStatus
+│   │   ├── utils/          # formatPrice, formatCurrency, sanitizeNumericInput
+│   │   ├── styles/         # SCSS partials (tokens, base, nav, layout, table, dashboard, home, dialog)
 │   │   ├── Home.jsx
 │   │   ├── Products.jsx
 │   │   ├── Dashboard.jsx
 │   │   ├── ProductRow.jsx
 │   │   ├── AddProductForm.jsx
+│   │   ├── SellDialog.jsx
+│   │   ├── ConfirmDialog.jsx
+│   │   ├── PaymentStatusBanner.jsx
 │   │   ├── Nav.jsx
 │   │   └── Auth0ProviderWithNavigate.jsx
 │   └── package.json
-└── package.json            # Root script to run both servers together
+└── package.json            # Root script to run backend, frontend, and Stripe CLI together
 ```
 
 ## Screenshots
@@ -142,6 +160,11 @@ Visiting a protected route while logged out redirects to Auth0 login — and aft
 
 **Dark / light theme transition**
 ![Demo: smooth theme toggle between light and dark mode](./assets/theme-toggle-demo.gif)
+
+**Sandbox payment flow**
+![Demo: selling a product through Stripe test checkout, with stock updating after payment](./assets/sandbox-payment-demo.gif)
+
+Selling a product opens a themed confirmation dialog, redirects to a real Stripe Checkout session (test mode), and — once Stripe's webhook confirms payment — automatically reduces stock and shows a confirmation banner. No real money is involved at any point.
 
 ## Technical Highlights
 
@@ -208,6 +231,28 @@ useEffect(() => {
 
 If a user switches currencies quickly, an older in-flight request could resolve after a newer one and overwrite it with stale data. `AbortController` cancels the previous request the instant a new one starts, so the displayed rate always matches the currently selected currency.
 
+### Backend: a swappable payment provider interface
+
+```python
+class PaymentGateway(ABC):
+    """
+    The shared contract every payment provider must follow. Routes in the
+    rest of the app only ever talk to this interface — never to Stripe or
+    Billplz directly — so switching providers later means writing a new
+    class that follows this same shape, not rewriting any routes.
+    """
+
+    @abstractmethod
+    def create_payment(self, amount, description, payer_email):
+        raise NotImplementedError
+
+    @abstractmethod
+    def verify_webhook(self, request):
+        raise NotImplementedError
+```
+
+Routes call `get_payment_gateway()` and never know or care whether Stripe or Billplz is actually running underneath. Stock is only ever decremented after a webhook cryptographically confirms a real payment succeeded — never at checkout creation, since a customer can always abandon or fail the actual payment.
+
 ## Scope
 
-This project intentionally does not include: multi-user accounts, payment processing, cloud hosting, a mobile app, automated restocking/supplier integration, or historical reporting. See the original project documentation for full scope boundaries.
+This project intentionally does not include: multi-user accounts, cloud hosting, a mobile app, automated restocking/supplier integration, or historical reporting. Payment processing was added later as a sandbox-only, test-mode learning exercise (Stripe test mode / Billplz sandbox) — no real transactions are possible. See the original project documentation for the original scope boundaries.

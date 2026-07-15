@@ -2,7 +2,7 @@
   "name": "inventory-tracker",
   "version": "1.0.0",
   "scripts": {
-    "dev": "concurrently -n BACKEND,FRONTEND -c blue,green \"cd backend && venv\\Scripts\\python.exe app.py\" \"cd frontend && npm run dev\""
+    "dev": "concurrently -n BACKEND,FRONTEND,STRIPE -c blue,green,magenta \"cd backend && venv\\Scripts\\python.exe app.py\" \"cd frontend && npm run dev\" \"stripe listen --forward-to localhost:5000/webhooks/stripe\""
   },
   
   "devDependencies": {
