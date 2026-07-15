@@ -159,7 +159,7 @@ Long product names wrap cleanly within their column instead of breaking the tabl
 Visiting a protected route while logged out redirects to Auth0 login — and after logging in, lands back on the originally requested page, not a generic home screen.
 
 **Dark / light theme transition**
-![Demo: smooth theme toggle between light and dark mode](./assets/theme-toggle-demo.gif)
+![Demo: smooth theme toggle between light and dark mode](./assets/toggle-demo.gif)
 
 **Sandbox payment flow**
 ![Demo: selling a product through Stripe test checkout, with stock updating after payment](./assets/sandbox-payment-demo.gif)
