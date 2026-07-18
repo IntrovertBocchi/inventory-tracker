@@ -4,6 +4,8 @@ from models import Product, Sale
 from auth import requires_auth
 from payments.factory import get_payment_gateway
 from payments.stripe_gateway import StripeGateway
+from payments.billplz_gateway import BillplzGateway
+import requests
 
 sales_bp = Blueprint("sales", __name__)
 
@@ -55,6 +57,7 @@ def create_sale(product_id):
 
     return jsonify({"checkout_url": result["checkout_url"], "sale_id": sale.id}),201
 
+# Stripe payment gateway
 @sales_bp.route("/webhooks/stripe", methods = ["POST"])
 def stripe_webhook():
     gateway = StripeGateway()
@@ -81,6 +84,38 @@ def stripe_webhook():
     db.session.commit()
 
     return jsonify({"message": "webhook processed."}), 200
+
+
+# Billplz payment gateway
+@sales_bp.route("/webhooks/billplz", methods=["POST"])
+def billplz_webhook():
+    gateway = BillplzGateway()
+
+    try:
+        result = gateway.verify_webhook(request)
+    except ValueError as e:
+        return jsonify({"Error": str(e)}), 400
+    except requests.RequestException:
+        return jsonify({"error": "Could not reach Billplz to confirm payment"}), 502
+
+    sale = Sale.query.filter_by(reference_id=result["reference_id"]).first()
+    
+    if not sale:
+        return jsonify({"Error": "sale not found for this payment"}), 404
+    
+    if sale.status != "pending":
+        return jsonify({"message": "already processed"}), 200
+    
+    sale.status = result["status"]
+
+    if result["status"] == "paid":
+        product = Product.query.get(sale.product_id)
+        product.stock_quantity -= sale.quantity
+
+    db.session.commit()
+
+    return jsonify({"message": "webhook processed"}), 200
+
 
 @sales_bp.route("/sales/<reference_id>", methods=["GET"])
 @requires_auth

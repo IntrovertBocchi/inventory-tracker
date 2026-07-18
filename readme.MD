@@ -10,7 +10,7 @@ Built as a practice project to learn end-to-end authentication, REST API design,
 - **Product Management** — full CRUD (create, read, update, delete) with server-side validation
 - **Live Currency Conversion** — view any product's price converted into a selected foreign currency, using live exchange rates
 - **Inventory Dashboard** — total inventory value, low-stock alerts, and a full product overview
-- **Sandbox Payments** — record a sale via a real payment provider (Stripe test mode), with stock automatically reduced once payment is confirmed by webhook — built behind a swappable gateway interface so a second provider (Billplz) can be added without touching any routes
+- **Sandbox Payments** — record a sale through a real payment provider (Stripe test mode or Billplz sandbox), with stock automatically reduced once payment is confirmed — built behind a swappable gateway interface, so either provider runs through the exact same routes with a one-line config change
 - **Dark / light theme** — with system-preference detection and persistence across sessions
 
 ## Tech Stack
@@ -18,7 +18,7 @@ Built as a practice project to learn end-to-end authentication, REST API design,
 **Frontend:** React, Vite, React Router, SCSS, Framer Motion, Auth0 React SDK
 **Backend:** Flask, SQLAlchemy, SQLite, joserfc (JWT verification)
 **Auth:** Auth0 (SPA Application + API, RS256, PKCE flow)
-**Payments:** Stripe (test mode / Checkout Sessions + webhooks), built behind a provider-agnostic `PaymentGateway` interface (Billplz sandbox support scaffolded, pending account activation)
+**Payments:** Stripe (test mode / Checkout Sessions + webhooks) and Billplz (sandbox), both behind a provider-agnostic `PaymentGateway` interface
 **External API:** [Frankfurter](https://frankfurter.app) for live currency exchange rates
 
 ## Prerequisites
@@ -67,6 +67,17 @@ FRONTEND_URL=http://localhost:5173
 ```
 
 `STRIPE_WEBHOOK_SECRET` comes from the [Stripe CLI](https://stripe.com/docs/stripe-cli) — run `stripe listen --forward-to localhost:5000/webhooks/stripe` once, and it will print the secret to use. This forwards Stripe's webhook events to your local server, since Stripe can't reach `localhost` directly. The root `npm run dev` script (below) starts this automatically alongside both servers.
+
+**To use Billplz instead**, set `PAYMENT_PROVIDER=billplz` and add:
+
+```
+BILLPLZ_SECRET_KEY=your-secret-key
+BILLPLZ_COLLECTION_ID=your-collection-id
+BILLPLZ_API_BASE=https://www.billplz-sandbox.com/api/v3
+BILLPLZ_CALLBACK_BASE=https://your-tunnel-url.ngrok-free.app
+```
+
+Billplz has no official local-tunneling tool (unlike Stripe's CLI), so `BILLPLZ_CALLBACK_BASE` needs a public URL pointing at your local server — [ngrok](https://ngrok.com) (`ngrok http 5000`) works well for this. Note the URL changes each time you restart ngrok on its free tier, so `BILLPLZ_CALLBACK_BASE` needs updating each session.
 
 ### 4. Frontend setup
 
@@ -118,7 +129,8 @@ inventory-tracker/
 │   ├── payments/
 │   │   ├── base.py             # PaymentGateway interface (create_payment, verify_webhook)
 │   │   ├── factory.py          # Returns the active gateway based on PAYMENT_PROVIDER
-│   │   └── stripe_gateway.py   # Stripe implementation of the interface
+│   │   ├── stripe_gateway.py   # Stripe implementation of the interface
+│   │   └── billplz_gateway.py  # Billplz implementation of the interface
 │   ├── extensions.py       # Shared SQLAlchemy db instance
 │   └── requirements.txt
 ├── frontend/
@@ -159,12 +171,15 @@ Long product names wrap cleanly within their column instead of breaking the tabl
 Visiting a protected route while logged out redirects to Auth0 login — and after logging in, lands back on the originally requested page, not a generic home screen.
 
 **Dark / light theme transition**
-![Demo: smooth theme toggle between light and dark mode](./assets/toggle-demo.gif)
+![Demo: smooth theme toggle between light and dark mode](./assets/theme-toggle-demo.gif)
 
-**Sandbox payment flow**
+**Sandbox payment flow — Stripe**
 ![Demo: selling a product through Stripe test checkout, with stock updating after payment](./assets/sandbox-payment-demo.gif)
 
-Selling a product opens a themed confirmation dialog, redirects to a real Stripe Checkout session (test mode), and — once Stripe's webhook confirms payment — automatically reduces stock and shows a confirmation banner. No real money is involved at any point.
+**Sandbox payment flow — Billplz**
+![Demo: selling a product through Billplz sandbox checkout, with stock updating after payment](./assets/billplz-payment-demo.gif)
+
+Selling a product opens a themed confirmation dialog, then redirects to a real hosted checkout session on whichever provider is active (Stripe test mode or Billplz sandbox). Once payment completes, stock is automatically reduced and a confirmation banner appears. No real money is involved with either provider — both are demoed here in sandbox/test mode only.
 
 ## Technical Highlights
 
@@ -251,7 +266,36 @@ class PaymentGateway(ABC):
         raise NotImplementedError
 ```
 
-Routes call `get_payment_gateway()` and never know or care whether Stripe or Billplz is actually running underneath. Stock is only ever decremented after a webhook cryptographically confirms a real payment succeeded — never at checkout creation, since a customer can always abandon or fail the actual payment.
+Routes call `get_payment_gateway()` and never know or care whether Stripe or Billplz is actually running underneath. Stock is only ever decremented after a webhook confirms a real payment succeeded — never at checkout creation, since a customer can always abandon or fail the actual payment.
+
+### Backend: verifying a webhook by not trusting it at all
+
+Stripe's SDK verifies its webhook signature directly. Billplz's callback signature turned out to depend on an idiosyncratic key-sorting rule not fully reflected in its own published examples, which made reproducing it exactly fragile. Rather than depend on getting a third-party signing algorithm byte-for-byte correct, the Billplz gateway treats the webhook as an **untrusted trigger only** — it extracts just the bill ID, then makes its own authenticated request back to Billplz's API to ask what actually happened:
+
+```python
+def verify_webhook(self, request):
+    # We don't trust any field in the webhook's own POST body — a forged
+    # request could claim anything. We only take the bill ID from it,
+    # then ask Billplz directly, using our own Secret Key, what the
+    # bill's real status is.
+    params = request.form.to_dict()
+    bill_id = params.get("id")
+
+    if not bill_id:
+        raise ValueError("Webhook payload missing bill id")
+
+    response = requests.get(
+        f"{self.api_base}/bills/{bill_id}",
+        auth=(self.secret_key, "")
+    )
+    response.raise_for_status()
+    bill = response.json()
+
+    status = "paid" if bill.get("paid") is True else "failed"
+    return {"reference_id": bill["id"], "status": status}
+```
+
+The webhook can never directly cause a stock change — it can only tell the server which bill to go check, and only Billplz's own authenticated API response is trusted as the source of truth.
 
 ## Scope
 

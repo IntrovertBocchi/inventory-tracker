@@ -24,10 +24,13 @@ export function usePaymentStatus(onPaymentComplete) {
     useEffect(() => {
         const paymentParam = searchParams.get("payment");
         const sessionId = searchParams.get("session_id");
+        const billplzId = searchParams.get("billplz[id]");
 
         if (paymentParam) {
             setStatus(paymentParam);
-            onPaymentComplete();
+            if (paymentParam === "success") {
+                onPaymentComplete();
+            }
             setSearchParams({}, { replace: true });
 
             if (sessionId) {
@@ -36,6 +39,30 @@ export function usePaymentStatus(onPaymentComplete) {
                     .then(data => setSaleInfo(data))
                     .catch(() => setSaleInfo(null));
             }
+        } else if (billplzId) {
+            
+            setSearchParams({}, { replace: true });
+            const checkSaleStatus = async () => {
+                try {
+                    const token = await getAccessTokenSilently();
+                    const data = await apiFetch(`/sales/${billplzId}`, token);
+
+                    setSaleInfo(data);
+
+                    if (data.status === "paid") {
+                        setStatus("success");
+                        onPaymentComplete();
+                    } else if (data.status === "failed" || data.status === "cancelled") {
+                        setStatus("cancelled");
+                    } else {
+                        setTimeout(checkSaleStatus, 1500);
+                    }
+                } catch {
+                    setStatus(null);
+                }
+            };
+
+            checkSaleStatus();
         }
     }, []);
 
