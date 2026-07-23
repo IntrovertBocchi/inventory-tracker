@@ -21,48 +21,44 @@ export function usePaymentStatus(onPaymentComplete) {
     const [status, setStatus] = useState(null);
     const [saleInfo, setSaleInfo] = useState(null);
 
+    async function pollSaleStatus(referenceId) {
+        try {
+            const token = await getAccessTokenSilently();
+            const data = await apiFetch(`/sales/${referenceId}`, token);
+
+            setSaleInfo(data);
+
+            if (data.status === "paid") {
+                setStatus("success");
+                onPaymentComplete();
+            } else if (data.status === "failed" || data.status === "cancelled") {
+                setStatus("cancelled");
+            } else {
+                setTimeout(() => pollSaleStatus(referenceId), 1500);
+            }
+        } catch {
+            setStatus(null);
+        }
+    }
     useEffect(() => {
         const paymentParam = searchParams.get("payment");
         const sessionId = searchParams.get("session_id");
         const billplzId = searchParams.get("billplz[id]");
+        const hitpayReference = searchParams.get("reference");
 
-        if (paymentParam) {
-            setStatus(paymentParam);
+        const referenceId = sessionId || billplzId || hitpayReference;
+
+        if (paymentParam && referenceId) {
+            setStatus(paymentParam === "success" ? "pending" : "cancelled");
+            setSearchParams({}, { replace: true });
+
             if (paymentParam === "success") {
-                onPaymentComplete();
+                pollSaleStatus(referenceId);
             }
-            setSearchParams({}, { replace: true });
-
-            if (sessionId) {
-                getAccessTokenSilently()
-                    .then(token => apiFetch(`/sales/${sessionId}`, token))
-                    .then(data => setSaleInfo(data))
-                    .catch(() => setSaleInfo(null));
-            }
-        } else if (billplzId) {
             
+        } else if (billplzId || hitpayReference) {
             setSearchParams({}, { replace: true });
-            const checkSaleStatus = async () => {
-                try {
-                    const token = await getAccessTokenSilently();
-                    const data = await apiFetch(`/sales/${billplzId}`, token);
-
-                    setSaleInfo(data);
-
-                    if (data.status === "paid") {
-                        setStatus("success");
-                        onPaymentComplete();
-                    } else if (data.status === "failed" || data.status === "cancelled") {
-                        setStatus("cancelled");
-                    } else {
-                        setTimeout(checkSaleStatus, 1500);
-                    }
-                } catch {
-                    setStatus(null);
-                }
-            };
-
-            checkSaleStatus();
+            pollSaleStatus(referenceId);
         }
     }, []);
 

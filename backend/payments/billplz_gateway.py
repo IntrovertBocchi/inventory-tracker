@@ -3,6 +3,9 @@ import requests
 from payments.base import PaymentGateway
 
 class BillplzGateway(PaymentGateway):
+
+    provider_name = "billplz"
+    
     def __init__(self):
         self.secret_key = os.environ.get("BILLPLZ_SECRET_KEY", "").strip()
         self.x_signature_key = os.environ.get("BILLPLZ_X_SIGNATURE_KEY", "").strip()

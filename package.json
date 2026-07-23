@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "concurrently -n BACKEND,FRONTEND,STRIPE -c blue,green,magenta \"cd backend && venv\\Scripts\\python.exe app.py\" \"cd frontend && npm run dev\" \"stripe listen --forward-to localhost:5000/webhooks/stripe\"",
-    "dev:billplz": "concurrently -n BACKEND,FRONTEND,NGROK -c blue,green,yellow \"cd backend && venv\\Scripts\\python.exe app.py\" \"cd frontend && npm run dev\" \"ngrok http 5000\""
+    "dev:alt": "concurrently -n BACKEND,FRONTEND,NGROK -c blue,green,yellow \"cd backend && venv\\Scripts\\python.exe app.py\" \"cd frontend && npm run dev\" \"ngrok http 5000\""
   },
   
   "devDependencies": {

@@ -17,4 +17,8 @@ def get_payment_gateway():
         from payments.billplz_gateway import BillplzGateway
         return BillplzGateway()
     
+    if provider == "hitpay":
+        from payments.hitpay_gateway import HitPayGateway
+        return HitPayGateway()
+    
     raise ValueError(f"Unknown PAYMENT_PROVIDER: {provider}")

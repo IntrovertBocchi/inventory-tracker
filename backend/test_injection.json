@@ -1,0 +1,6 @@
+{
+  "name": "Injection Test",
+  "sku": "INJ-001",
+  "stock_quantity": "5; DROP TABLE product;--",
+  "base_price": 10
+}

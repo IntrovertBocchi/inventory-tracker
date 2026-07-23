@@ -3,6 +3,9 @@ import stripe
 from payments.base import PaymentGateway
 
 class StripeGateway(PaymentGateway):
+
+    provider_name = "stripe"
+    
     def __init__(self):
         stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
         self.webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")

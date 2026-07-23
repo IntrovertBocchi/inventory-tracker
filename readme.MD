@@ -10,7 +10,7 @@ Built as a practice project to learn end-to-end authentication, REST API design,
 - **Product Management** — full CRUD (create, read, update, delete) with server-side validation
 - **Live Currency Conversion** — view any product's price converted into a selected foreign currency, using live exchange rates
 - **Inventory Dashboard** — total inventory value, low-stock alerts, and a full product overview
-- **Sandbox Payments** — record a sale through a real payment provider (Stripe test mode or Billplz sandbox), with stock automatically reduced once payment is confirmed — built behind a swappable gateway interface, so either provider runs through the exact same routes with a one-line config change
+- **Sandbox Payments** — record a sale through a real payment provider (Stripe test mode, Billplz sandbox, or HitPay sandbox), with stock automatically reduced once payment is confirmed — built behind a swappable gateway interface, so any provider runs through the exact same routes with a one-line config change
 - **Dark / light theme** — with system-preference detection and persistence across sessions
 
 ## Tech Stack
@@ -18,7 +18,7 @@ Built as a practice project to learn end-to-end authentication, REST API design,
 **Frontend:** React, Vite, React Router, SCSS, Framer Motion, Auth0 React SDK
 **Backend:** Flask, SQLAlchemy, SQLite, joserfc (JWT verification)
 **Auth:** Auth0 (SPA Application + API, RS256, PKCE flow)
-**Payments:** Stripe (test mode / Checkout Sessions + webhooks) and Billplz (sandbox), both behind a provider-agnostic `PaymentGateway` interface
+**Payments:** Stripe (test mode / Checkout Sessions + webhooks), Billplz (sandbox), and HitPay (sandbox), all behind a provider-agnostic `PaymentGateway` interface
 **External API:** [Frankfurter](https://frankfurter.app) for live currency exchange rates
 
 ## Prerequisites
@@ -79,6 +79,17 @@ BILLPLZ_CALLBACK_BASE=https://your-tunnel-url.ngrok-free.app
 
 Billplz has no official local-tunneling tool (unlike Stripe's CLI), so `BILLPLZ_CALLBACK_BASE` needs a public URL pointing at your local server — [ngrok](https://ngrok.com) (`ngrok http 5000`) works well for this. Note the URL changes each time you restart ngrok on its free tier, so `BILLPLZ_CALLBACK_BASE` needs updating each session.
 
+**To use HitPay instead**, set `PAYMENT_PROVIDER=hitpay` and add:
+
+```
+HITPAY_API_KEY=your-sandbox-api-key
+HITPAY_SALT=your-salt
+HITPAY_WEBHOOK_SALT=your-webhook-salt
+HITPAY_BASE_URL=https://api.sandbox.hit-pay.com/v1
+```
+
+HitPay also has no local-tunneling tool, so it needs the same ngrok-based public URL as Billplz — register the current ngrok URL as your webhook endpoint directly in the HitPay sandbox dashboard (Settings → Webhooks), and update it there each time your ngrok URL changes. As a resilience measure against a webhook that's delayed or fails to register correctly, this gateway also polls HitPay's own API for the real payment status when the frontend checks on a sale — so a sale can still resolve correctly even if the webhook itself doesn't arrive.
+
 ### 4. Frontend setup
 
 ```
@@ -130,7 +141,8 @@ inventory-tracker/
 │   │   ├── base.py             # PaymentGateway interface (create_payment, verify_webhook)
 │   │   ├── factory.py          # Returns the active gateway based on PAYMENT_PROVIDER
 │   │   ├── stripe_gateway.py   # Stripe implementation of the interface
-│   │   └── billplz_gateway.py  # Billplz implementation of the interface
+│   │   ├── billplz_gateway.py  # Billplz implementation of the interface
+│   │   └── hitpay_gateway.py   # HitPay implementation of the interface
 │   ├── extensions.py       # Shared SQLAlchemy db instance
 │   └── requirements.txt
 ├── frontend/
@@ -179,7 +191,25 @@ Visiting a protected route while logged out redirects to Auth0 login — and aft
 **Sandbox payment flow — Billplz**
 ![Demo: selling a product through Billplz sandbox checkout, with stock updating after payment](./assets/billplz-payment-demo.gif)
 
-Selling a product opens a themed confirmation dialog, then redirects to a real hosted checkout session on whichever provider is active (Stripe test mode or Billplz sandbox). Once payment completes, stock is automatically reduced and a confirmation banner appears. No real money is involved with either provider — both are demoed here in sandbox/test mode only.
+**Sandbox payment flow — HitPay**
+![Demo: selling a product through HitPay sandbox checkout, with stock updating after payment](./assets/hitpay-payment-demo.gif)
+
+Selling a product opens a themed confirmation dialog, then redirects to a real hosted checkout session on whichever provider is active (Stripe test mode, Billplz sandbox, or HitPay sandbox). Once payment completes, stock is automatically reduced and a confirmation banner appears. No real money is involved with any provider — all three are demoed here in sandbox/test mode only.
+
+**SQL injection testing**
+![Injection payloads stored and displayed as harmless literal text](./assets/sql-injection-test.png)
+
+Every write endpoint was tested against common SQL injection payloads, submitted through both the UI and directly via the API:
+
+```
+Widget'; DROP TABLE product;--
+' OR '1'='1
+X' OR 1=1--
+'; UPDATE product SET base_price=0;--
+Robert'); DROP TABLE sale;--
+```
+
+Every payload was stored and displayed back as ordinary literal text — no table was altered or dropped, no row was affected beyond the one being edited. This is expected: every query goes through SQLAlchemy's ORM, which sends user input as a separate, parameterized value rather than concatenating it into the SQL string itself, so the database can never confuse submitted data for executable SQL.
 
 ## Technical Highlights
 
@@ -297,6 +327,24 @@ def verify_webhook(self, request):
 
 The webhook can never directly cause a stock change — it can only tell the server which bill to go check, and only Billplz's own authenticated API response is trusted as the source of truth.
 
+### Backend: a webhook with a polling fallback, for resilience against dropped deliveries
+
+Webhooks can fail to arrive for reasons entirely outside an application's control — a stale tunnel URL, a delayed retry, a brief network hiccup. The HitPay gateway keeps its own signature-verified webhook route, but also exposes a `get_payment_status` method that the frontend calls (via `GET /sales/<reference_id>`) whenever a user checks on a sale that's still marked "pending":
+
+```python
+def get_payment_status(self, reference_id):
+    response = requests.get(
+        f"{self.api_base}/payment-requests/{reference_id}",
+        headers={"X-BUSINESS-API-KEY": self.api_key},
+    )
+    response.raise_for_status()
+    data = response.json()
+
+    return "paid" if data["status"] == "completed" else data["status"]
+```
+
+If a sale is still `"pending"` when its status is checked, the backend asks HitPay's own API directly rather than waiting indefinitely on a webhook that may never arrive — and updates stock right there if the real answer is "paid." This isn't a replacement for webhook verification; it's a second, independent path to the same trustworthy source (HitPay's authenticated API), so a single delivery failure doesn't leave a paid order stuck unresolved.
+
 ## Scope
 
-This project intentionally does not include: multi-user accounts, cloud hosting, a mobile app, automated restocking/supplier integration, or historical reporting. Payment processing was added later as a sandbox-only, test-mode learning exercise (Stripe test mode / Billplz sandbox) — no real transactions are possible. See the original project documentation for the original scope boundaries.
+This project intentionally does not include: multi-user accounts, cloud hosting, a mobile app, automated restocking/supplier integration, or historical reporting. Payment processing was added later as a sandbox-only, test-mode learning exercise (Stripe test mode, Billplz sandbox, HitPay sandbox) — no real transactions are possible. See the original project documentation for the original scope boundaries.
